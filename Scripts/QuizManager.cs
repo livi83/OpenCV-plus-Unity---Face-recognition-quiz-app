@@ -1,4 +1,14 @@
-﻿namespace OpenCvSharp.Demo
+/*
+ Reference links_
+   forum.unity.com/threads/tutorial-using-c-opencv-within-unity.459434/
+   thomasmountainborn.com/2017/03/05/unity-and-opencv-part-three-passing-detection-data-to-unity/
+   forum.unity.com/threads/opencvsharp-for-unity.278033/
+   www.opencv-srf.com/p/introduction.html
+   github.com/rajandeepsingh13/Face-Detection-using-OpenCV-CPP-in-Unity
+   youtube.com/watch?v=G9QDFB2RQGA
+ */
+
+namespace OpenCvSharp.Demo
 {
 
     using System.Collections.Generic;
@@ -38,6 +48,108 @@
 
         private readonly Size requiredSize = new Size(128, 128);
 
+        #region SK: Face recognizer trénovanie
+
+        /*private void TrainRecognizer(string root)
+		{
+          /// <summary>
+        /// Trénovanie recognizera obrázkami
+        /// </summary>
+			// OpenCV documentácia a príklady:docs.opencv.org/3.0-beta/modules/face/doc/facerec/tutorial/facerec_video_recognition.html
+			// Prehľad tréningových setov:kairos.com/blog/60-facial-recognition-databases
+			// ďalšia OpenCV dok: docs.opencv.org/2.4/modules/contrib/doc/facerec/facerec_tutorial.html#face-database
+
+			int id = 0;
+			var ids = new List<int>();
+			var mats = new List<Mat>();
+			var namesList = new List<string>();
+			
+			foreach (string dir in Directory.GetDirectories(root))
+			{
+				string name = System.IO.Path.GetFileNameWithoutExtension(dir);
+				if (name.StartsWith("-"))
+					continue;
+
+				namesList.Add(name);
+				UnityEngine.Debug.LogFormat("{0} = {1}", id, name);
+
+				foreach (string file in Directory.GetFiles(dir))
+				{
+					var bytes = File.ReadAllBytes(file);
+					var texture = new UnityEngine.Texture2D(2, 2);
+					texture.LoadImage(bytes); // <--- this one has changed in Unity 2017 API and on that version must be changed
+
+					ids.Add(id);
+                    //každá načítaná textúra je konvertovaná na OpenCV Mat a daná do stupňov šedej 
+					var mat = Unity.TextureToMat(texture);
+					mat = mat.CvtColor(ColorConversionCodes.BGR2GRAY);
+					if (requiredSize.Width > 0 && requiredSize.Height > 0)
+						mat = mat.Resize(requiredSize);
+					mats.Add(mat);
+				}
+				id++;
+			}
+
+			names = namesList.ToArray();
+            //trénovanie recognizera a ukladanie výsledkov pre budúce použitie. Nie je nevyhnutné pre malé trénovacie datasety, pre veľké áno
+			recognizer.Train(mats, ids);
+			recognizer.Save(root + "/face-recognizer.xml");
+		}*/
+        #endregion
+        #region ENG: Face recognizer training
+        /// <summary>
+        /// Routine to train face recognizer with sample images
+        /// </summary>
+        /*private void TrainRecognizer(string root)
+		{
+			// This one was actually used to train the recognizer. I didn't push much effort and satisfied once it
+			// distinguished all detected faces on the sample image, for the real-world application you might want to
+			// refer to the following documentation:
+			// OpenCV documentation and samples: http://docs.opencv.org/3.0-beta/modules/face/doc/facerec/tutorial/facerec_video_recognition.html
+			// Training sets overview: https://www.kairos.com/blog/60-facial-recognition-databases
+			// Another OpenCV doc: http://docs.opencv.org/2.4/modules/contrib/doc/facerec/facerec_tutorial.html#face-database
+
+			int id = 0;
+			var ids = new List<int>();
+			var mats = new List<Mat>();
+			var namesList = new List<string>();
+			
+			foreach (string dir in Directory.GetDirectories(root))
+			{
+				string name = System.IO.Path.GetFileNameWithoutExtension(dir);
+				if (name.StartsWith("-"))
+					continue;
+
+				namesList.Add(name);
+				UnityEngine.Debug.LogFormat("{0} = {1}", id, name);
+
+				foreach (string file in Directory.GetFiles(dir))
+				{
+					var bytes = File.ReadAllBytes(file);
+					var texture = new UnityEngine.Texture2D(2, 2);
+					texture.LoadImage(bytes); // <--- this one has changed in Unity 2017 API and on that version must be changed
+
+					ids.Add(id);
+
+					// each loaded texture is converted to OpenCV Mat, turned to grayscale (assuming we have RGB source) and resized
+					var mat = Unity.TextureToMat(texture);
+					mat = mat.CvtColor(ColorConversionCodes.BGR2GRAY);
+					if (requiredSize.Width > 0 && requiredSize.Height > 0)
+						mat = mat.Resize(requiredSize);
+					mats.Add(mat);
+				}
+				id++;
+			}
+
+			names = namesList.ToArray();
+
+			// train recognizer and save result for the future re-use, while this isn't quite necessary on small training sets, on a bigger set it should
+			// give serious performance boost
+			recognizer.Train(mats, ids);
+			recognizer.Save(root + "/face-recognizer.xml");
+		}*/
+        #endregion
+
         /*
          SK: metóda, ktorá sa zavolá pred Update()
          ENG: method, which is called before Update()
@@ -74,9 +186,6 @@
         */
         void CheckScore()
          {
-            ///history = gameObject.GetComponent<History>();
-            
-            //history = gameObject.AddComponent<History>();
              if (history.GetSavedScore() < score)
                 {
                     SaveSystem.SaveScore(this);
@@ -145,6 +254,18 @@
 
                     int label = -1;
 
+                    /*SK:    
+                       pokús sa rozpoznať tvár:
+                       confidence" je v princípe vzdialenosť od vzorky k najbližšej známej tvári
+                       0 je nejaká „ideálna zhoda“
+                    */
+                    
+                    /*ENG:    
+                        now try to recognize the face:
+                        confidence" here is actually a misguide. in fact, it's "distance from the sample to the closest known face".
+                        0 being some "ideal match"
+                    */
+                    
                     double confidence = 0.0;
                     recognizer.Predict(grayFace, out label, out confidence);
                     faceName = names[label];
@@ -164,6 +285,7 @@
                     Debug.Log(faceName);
                 }
                 // Priradenie obrázku textúre Image komponentu na scéne 
+                // Asign image to the texture on Image component
                 var texture = Unity.MatToTexture(image);
                 var rawImage = Image;
                 rawImage.texture = texture;
